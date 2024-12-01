@@ -14,7 +14,7 @@ public class MapManager
     private readonly string[,] _mapGrid;
     private readonly GameContext _context;
     private readonly OutputManager _outputManager;
-    private Room _currentRoom;
+    public Room _currentRoom;
 
     public MapManager(GameContext context, OutputManager outputManager)
     {

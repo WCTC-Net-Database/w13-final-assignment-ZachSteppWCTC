@@ -58,3 +58,5 @@ SET IDENTITY_INSERT Rooms OFF;
 
 
 -- Add player to room
+UPDATE PLAYERS SET RoomId = 1 Where Id = 1
+UPDATE Monsters SET RoomId = 1 Where Id = 1

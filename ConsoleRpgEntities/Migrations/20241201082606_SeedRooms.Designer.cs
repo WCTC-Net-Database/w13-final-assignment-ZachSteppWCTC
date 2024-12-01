@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ConsoleRpgEntities.Migrations
 {
     [DbContext(typeof(GameContext))]
-    [Migration("20241118000408_SeedRooms")]
+    [Migration("20241201082606_SeedRooms")]
     partial class SeedRooms
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -88,7 +88,12 @@ namespace ConsoleRpgEntities.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("RoomId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("RoomId");
 
                     b.ToTable("Monsters");
 
@@ -223,6 +228,9 @@ namespace ConsoleRpgEntities.Migrations
                     b.Property<int?>("EastId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("MonsterId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -288,6 +296,15 @@ namespace ConsoleRpgEntities.Migrations
                         .HasForeignKey("PlayersId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("ConsoleRpgEntities.Models.Characters.Monsters.Monster", b =>
+                {
+                    b.HasOne("ConsoleRpgEntities.Models.Rooms.Room", "Room")
+                        .WithMany("Monsters")
+                        .HasForeignKey("RoomId");
+
+                    b.Navigation("Room");
                 });
 
             modelBuilder.Entity("ConsoleRpgEntities.Models.Characters.Player", b =>
@@ -378,6 +395,8 @@ namespace ConsoleRpgEntities.Migrations
 
             modelBuilder.Entity("ConsoleRpgEntities.Models.Rooms.Room", b =>
                 {
+                    b.Navigation("Monsters");
+
                     b.Navigation("Players");
                 });
 #pragma warning restore 612, 618

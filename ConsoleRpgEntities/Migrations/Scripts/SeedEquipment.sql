@@ -1,6 +1,6 @@
 ﻿-- 1. Insert a new sword into the Items table
-INSERT INTO Items (Name, Type, Attack, Defense)
-VALUES ('Sword', 'Weapon', 5, 0);
+INSERT INTO Items (Name, Type, Attack, Defense, Weight, Value)
+VALUES ('Sword', 'Weapon', 5, 0, 1, 10);
 
 -- Get the Id of the newly inserted Item
 DECLARE @SwordId INT = SCOPE_IDENTITY();

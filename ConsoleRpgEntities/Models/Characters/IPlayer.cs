@@ -10,5 +10,6 @@ public interface IPlayer
     ICollection<Ability> Abilities { get; set; }
     Inventory Inventory { get; set; }
     Equipment Equipment { get; set; }
+    int Health { get; set; }
 }
 
