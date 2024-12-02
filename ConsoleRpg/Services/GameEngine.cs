@@ -1,14 +1,17 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Reflection;
 using System.Text;
+using System.Xml.Linq;
 using ConsoleRpg.Helpers;
 using ConsoleRpgEntities.Data;
 using ConsoleRpgEntities.Models.Abilities.PlayerAbilities;
 using ConsoleRpgEntities.Models.Attributes;
 using ConsoleRpgEntities.Models.Characters;
 using ConsoleRpgEntities.Models.Characters.Monsters;
+using ConsoleRpgEntities.Models.Equipments;
 using ConsoleRpgEntities.Models.Rooms;
 using ConsoleRpgEntities.Services;
 using Spectre.Console;
@@ -27,7 +30,6 @@ public class GameEngine
     private Panel _mapPanel;
 
     private Player _player;
-    private IMonster _goblin;
 
     public GameEngine(GameContext context, MenuManager menuManager, MapManager mapManager, PlayerService playerService, OutputManager outputManager, MonsterService monsterService)
     {
@@ -51,11 +53,14 @@ public class GameEngine
     {
         while (true)
         {
+            _outputManager.AddLogEntry("=-=-=-= Main Menu =-=-=-=");
             _outputManager.AddLogEntry("N/E/S/W. Navigate");
             _outputManager.AddLogEntry("1. Attack");
             _outputManager.AddLogEntry("2. Manage Characters");
             _outputManager.AddLogEntry("3. Manage Rooms");
-            _outputManager.AddLogEntry("4. Quit");
+            _outputManager.AddLogEntry("4. Swap Character");
+            _outputManager.AddLogEntry("5. Admin Options");
+            _outputManager.AddLogEntry("6. Quit");
             var input = _outputManager.GetUserInput("Choose an action:");
 
 
@@ -78,24 +83,60 @@ public class GameEngine
                     ManageRooms();
                     break;
                 case "4":
+                    SwapCharacter();
+                    break;
+                case "5":
+                    AdminOptions();
+                    break;
+                case "6":
                     _outputManager.AddLogEntry("Exiting game...");
                     Environment.Exit(0);
                     break;
                 default:
-                    _outputManager.AddLogEntry("Invalid selection. Please choose 1.");
+                    _outputManager.AddLogEntry("Invalid selection. Please choose a valid option.");
                     break;
             }
         }
     }
+    
+    private void SwapCharacter()
+    {
+        _outputManager.AddLogEntry("=-=-=-= Select Your Character =-=-=-=");
+        var characters = _context.Players;
+        foreach (var character in characters)
+        {
+            _outputManager.AddLogEntry(character.Id + ". " + character.Name);
+        }
+        var input = _outputManager.GetUserInput("Selection:");
+        try
+        {
+            var id = int.Parse(input);
+            var character = _context.Players.Where(player => player.Id == id).FirstOrDefault();
+            if (character != null) 
+            {
+                _player = character;
+                _mapManager._currentRoom = _player.Room;
+                _mapManager.DisplayMap();
+                _outputManager.AddLogEntry("You are now playing as " + _player.Name + ".");
+            }
+            else
+            {
+                _outputManager.AddLogEntry("Invalid input: Please select a listed character's Id.");
+            }
+        }
+        catch (FormatException) { _outputManager.AddLogEntry("Invalid input: Please enter an integer for Character Selection."); }
+
+    }
 
     private void ManageCharacters()
     {
+        _outputManager.AddLogEntry("=-=-=-= Character Management =-=-=-=");
         _outputManager.AddLogEntry("1. Display All Characters");
-        _outputManager.AddLogEntry("2. Character Search (View Abilities)");
+        _outputManager.AddLogEntry("2. Character Search (Details & Abilities)");
         _outputManager.AddLogEntry("3. Add Character");
         _outputManager.AddLogEntry("4. Edit Character");
         _outputManager.AddLogEntry("5. Add Ability");
-        _outputManager.AddLogEntry("6. Main Menu");
+        _outputManager.AddLogEntry("6. Back");
         var input = _outputManager.GetUserInput("Choose an action:");
 
         switch (input)
@@ -125,10 +166,11 @@ public class GameEngine
 
     private void ManageRooms()
     {
+        _outputManager.AddLogEntry("=-=-=-= Room Management =-=-=-=");
         _outputManager.AddLogEntry("1. Current Room Information");
         _outputManager.AddLogEntry("2. Room Search");
         _outputManager.AddLogEntry("3. Add Room");
-        _outputManager.AddLogEntry("4. Main Menu");
+        _outputManager.AddLogEntry("4. Back");
         var input = _outputManager.GetUserInput("Choose an action:");
 
         switch (input)
@@ -153,6 +195,7 @@ public class GameEngine
     {
         _outputManager.AddLogEntry("1. Add Player");
         _outputManager.AddLogEntry("2. Add Monster");
+        _outputManager.AddLogEntry("3. Back");
         var input = _outputManager.GetUserInput("Choose an action:");
 
         switch (input)
@@ -162,6 +205,9 @@ public class GameEngine
                 break;
             case "2":
                 AddMonster();
+                break;
+            case "3":
+                ManageCharacters();
                 break;
             default:
                 _outputManager.AddLogEntry("Invalid selection. Please choose a valid action.");
@@ -192,12 +238,17 @@ public class GameEngine
             {
                 var xp = int.Parse(xpInput);
                 var hp = int.Parse(hpInput);
+
+                ICollection<Ability> abilities = Array.Empty<Ability>();
+
                 var character = new Player
                 {
                     Name = name,
                     Health = hp,
                     Experience = xp,
-                    Room = targetroom
+                    Room = targetroom,
+                    Equipment = GetUniqueWeapon(),
+                    Abilities = abilities
                 };
 
                 _context.Players.Add(character);
@@ -217,6 +268,25 @@ public class GameEngine
                     return;
             }
         }
+    }
+    private Equipment GetUniqueWeapon()
+    {
+        var equipment = new Equipment();
+        Random rnd = new Random();
+        var idsInEquipment = _context.Equipments.Select(x => x.WeaponId).ToHashSet();
+        var weapons = _context.Items.Where(item => item.Type == "Weapon").ToHashSet();
+        var weaponsNotInEquipment = _context.Items.Where(item => !(idsInEquipment.Contains(item.Id))).ToHashSet();
+
+        int r = rnd.Next(weaponsNotInEquipment.Count); // Selects a random weapon not already in a character's equipment.
+        var item = weaponsNotInEquipment.ElementAt(r);
+        if (item != null)
+        {
+            equipment.WeaponId = item.Id;
+            _outputManager.AddLogEntry("New player was given the random weapon: " + item.Name);
+            return equipment;
+        }
+        _outputManager.AddLogEntry("New player does not have a weapon.");
+        return equipment;
     }
     private void AddMonster()
     {
@@ -297,6 +367,7 @@ public class GameEngine
     {
         _outputManager.AddLogEntry("1. Edit a Player");
         _outputManager.AddLogEntry("2. Edit a Monster");
+        _outputManager.AddLogEntry("3. Back");
         var input = _outputManager.GetUserInput("Choose an action:");
 
         switch (input)
@@ -306,6 +377,9 @@ public class GameEngine
                 break;
             case "2":
                 EditMonster();
+                break;
+            case "3":
+                ManageCharacters(); 
                 break;
             default:
                 _outputManager.AddLogEntry("Invalid selection. Please choose a valid action.");
@@ -326,7 +400,7 @@ public class GameEngine
                 _outputManager.AddLogEntry("2. Edit Experience");
                 _outputManager.AddLogEntry("3. Edit Health");
                 _outputManager.AddLogEntry("4. Edit Room");
-                _outputManager.AddLogEntry("5. Exit");
+                _outputManager.AddLogEntry("5. Back");
                 var edit = _outputManager.GetUserInput("Choose an action:");
 
                 switch (edit)
@@ -376,9 +450,13 @@ public class GameEngine
                     case "5":
                         _context.SaveChanges();
                         editing = false;
+                        EditCharacter();
                         break;
                     default:
-                        _outputManager.AddLogEntry("Invalid selection. Please choose a valid action.");
+                        _outputManager.AddLogEntry("Invalid selection. Changes saved.");
+                        _context.SaveChanges();
+                        editing = false;
+                        EditCharacter();
                         break;
                 }
             }
@@ -402,7 +480,7 @@ public class GameEngine
                 _outputManager.AddLogEntry("2. Edit Aggression Level");
                 _outputManager.AddLogEntry("3. Edit Health");
                 _outputManager.AddLogEntry("4. Edit Room");
-                _outputManager.AddLogEntry("5. Exit");
+                _outputManager.AddLogEntry("5. Back");
                 var edit = _outputManager.GetUserInput("Choose an action:");
 
                 switch (edit)
@@ -452,6 +530,7 @@ public class GameEngine
                     case "5":
                         _context.SaveChanges();
                         editing = false;
+                        EditCharacter();
                         break;
                     default:
                         _outputManager.AddLogEntry("Invalid selection. Please choose a valid action.");
@@ -473,6 +552,7 @@ public class GameEngine
         {
             _outputManager.AddLogEntry(character.Name + " | " + character.Room.Name ?? "None");
         }
+        _outputManager.GetUserInput("Press Enter to Continue");
         _outputManager.AddLogEntry("=-=-=-=-= Monster Characters =-=-=-=-=");
         foreach (var character in monstercharacters)
         {
@@ -487,6 +567,7 @@ public class GameEngine
             }
             _outputManager.AddLogEntry(character.Name + " | " + room);
         }
+        _outputManager.GetUserInput("Press Enter to Continue");
         _outputManager.AddLogEntry("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
 
     }
@@ -522,6 +603,7 @@ public class GameEngine
                     }
                 }
             }
+            _outputManager.GetUserInput("Press Enter to Continue");
         }
         else
         {
@@ -535,6 +617,7 @@ public class GameEngine
             {
                 _outputManager.AddLogEntry("Name: " + character.Name + " - HP: " + character.Health.ToString() + " - Aggression: " + character.AggressionLevel.ToString() + " - Type: " + character.MonsterType);
             }
+            _outputManager.GetUserInput("Press Enter to Continue");
             _outputManager.AddLogEntry("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
         }
         else
@@ -554,22 +637,67 @@ public class GameEngine
             var name = _outputManager.GetUserInput("Enter Ability Name:");
             var description = _outputManager.GetUserInput("Enter Ability Description:");
             var type = _outputManager.GetUserInput("Enter Ability Type:");
+            var damage = AddIntegerProperty("Ability", "damage");
             switch (type.ToLower())
             {
+                case "shove":
                 case "shoveability":
                     {
-                        var ability = new ShoveAbility
+                        var distance = AddIntegerProperty("Ability", "distance");
+                        _outputManager.AddLogEntry($"Name: {name}");
+                        _outputManager.AddLogEntry($"Desc: {description}");
+                        _outputManager.AddLogEntry($"Type: {type}");
+                        _outputManager.AddLogEntry($"Damage: {damage.ToString()}");
+                        _outputManager.AddLogEntry($"Damage: {distance.ToString()}");
+                        var confirm = _outputManager.GetUserInput("Does this look right? Y/N:");
+                        if (confirm.ToUpper() == "Y")
                         {
-                            Name = name,
-                            Description = description,
-                            AbilityType = type,
-                            Damage = AddIntegerProperty("Ability", "damage"),
-                            Distance = AddIntegerProperty("Ability", "distance")
-                        };
-                        _context.Abilities.Add(ability);
-                        playercharacter.Abilities.Add(ability);
-                        _context.SaveChanges();
-                        _outputManager.AddLogEntry(playercharacter.Name + " learned " + name + ".");
+                            var ability = new ShoveAbility
+                            {
+                                Name = name,
+                                Description = description,
+                                AbilityType = type,
+                                Damage = damage,
+                                Distance = distance
+
+                            };
+                            _context.Abilities.Add(ability);
+                            playercharacter.Abilities.Add(ability);
+                            _context.SaveChanges();
+                            _outputManager.AddLogEntry(playercharacter.Name + " learned " + name + ".");
+                        }
+                        else
+                        {
+                            _outputManager.AddLogEntry("Add ability cancelled.");
+                        }
+                        break;
+                    }
+                case "smash":
+                case "smashability":
+                    {
+                        _outputManager.AddLogEntry($"Name: {name}");
+                        _outputManager.AddLogEntry($"Desc: {description}");
+                        _outputManager.AddLogEntry($"Type: {type}");
+                        _outputManager.AddLogEntry($"Damage: {damage.ToString()}");
+                        var confirm = _outputManager.GetUserInput("Does this look right? Y/N:");
+                        if (confirm.ToUpper() == "Y")
+                        {
+                            var ability = new SmashAbility
+                            {
+                                Name = name,
+                                Description = description,
+                                AbilityType = type,
+                                Damage = damage,
+                            };
+                            _context.Abilities.Add(ability);
+                            playercharacter.Abilities.Add(ability);
+                            _context.SaveChanges();
+                            _outputManager.AddLogEntry(playercharacter.Name + " learned " + name + ".");
+                        }
+                        else
+                        {
+                            _outputManager.AddLogEntry("Add ability cancelled.");
+                        }
                         break;
                     }
                 default:
@@ -591,7 +719,9 @@ public class GameEngine
         _outputManager.AddLogEntry("=-=-=-=-= Current Room =-=-=-=-=");
         _outputManager.AddLogEntry("Room: " + currentroom.Name);
         _outputManager.AddLogEntry("Description: " + currentroom.Description);
+        _outputManager.GetUserInput("Press Enter to Continue");
         GetRoomCharacters(currentroom);
+        _outputManager.GetUserInput("Press Enter to Continue");
         _outputManager.AddLogEntry("Adjacent Rooms:");
         if (currentroom.North != null)
             _outputManager.AddLogEntry("- North: " + (currentroom.North.Name ?? "None"));
@@ -601,6 +731,7 @@ public class GameEngine
             _outputManager.AddLogEntry("- South: " + (currentroom.South.Name ?? "None"));
         if (currentroom.West != null)
             _outputManager.AddLogEntry("- West: " + (currentroom.West.Name ?? "None"));
+        _outputManager.GetUserInput("Press Enter to Continue");
     }
     public void GetRoomCharacters(Room room)
     {
@@ -644,6 +775,7 @@ public class GameEngine
                 _outputManager.AddLogEntry("Room: " + room.Name);
                 _outputManager.AddLogEntry("Description: " + room.Description);
                 GetRoomCharacters(room);
+                _outputManager.GetUserInput("Press Enter to Continue");
             }
             _outputManager.AddLogEntry("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
         }
@@ -657,94 +789,100 @@ public class GameEngine
     {
         var name = _outputManager.GetUserInput("Enter Room Name:");
         var description = _outputManager.GetUserInput("Enter Room Description:");
-        while (true)
+        _outputManager.AddLogEntry($"Name : {name}");
+        _outputManager.AddLogEntry($"Description : {description}");
+        var confirm = _outputManager.GetUserInput("Does this look right? Y/N:");
+        if (confirm.ToUpper() == "Y")
         {
-            Room newRoom = null;
-            var direction = _outputManager.GetUserInput("Enter expansion direction (N/E/S/W):");
-            var connectionName = _outputManager.GetUserInput("Enter Room Name to expend from:");
-
-            var connectionRoom = _context.Rooms.FirstOrDefault(room => room.Name.ToUpper() == connectionName.ToUpper());
-            if (connectionRoom != null)
+            while (true)
             {
-                switch (direction.ToUpper())
+                Room newRoom = null;
+                var direction = _outputManager.GetUserInput("Enter expansion direction (N/E/S/W):");
+                var connectionName = _outputManager.GetUserInput("Enter Room Name to expend from:");
+
+                var connectionRoom = _context.Rooms.FirstOrDefault(room => room.Name.ToUpper() == connectionName.ToUpper());
+                if (connectionRoom != null)
                 {
-                    case "N":
-                        if (connectionRoom.NorthId == null)
-                        {
-                            newRoom = new Room { Name = name, Description = description, SouthId = connectionRoom.Id };
-                            _context.Rooms.Add(newRoom);
-                            _context.SaveChanges();
-                            newRoom = _context.Rooms.FirstOrDefault(room => room.Name.ToUpper() == name.ToUpper());
+                    switch (direction.ToUpper())
+                    {
+                        case "N":
+                            if (connectionRoom.NorthId == null)
+                            {
+                                newRoom = new Room { Name = name, Description = description, SouthId = connectionRoom.Id };
+                                _context.Rooms.Add(newRoom);
+                                _context.SaveChanges();
+                                newRoom = _context.Rooms.FirstOrDefault(room => room.Name.ToUpper() == name.ToUpper());
 
-                            connectionRoom.NorthId = newRoom.Id;
-                        }
-                        else
-                        {
-                            _outputManager.AddLogEntry(connectionRoom.Name + " already has a North room.");
-                        }
-                        break;
-                    case "S":
-                        if (connectionRoom.SouthId == null)
-                        {
-                            newRoom = new Room { Name = name, Description = description, NorthId = connectionRoom.Id };
-                            _context.Rooms.Add(newRoom);
-                            _context.SaveChanges();
-                            newRoom = _context.Rooms.FirstOrDefault(room => room.Name.ToUpper() == name.ToUpper());
+                                connectionRoom.NorthId = newRoom.Id;
+                            }
+                            else
+                            {
+                                _outputManager.AddLogEntry(connectionRoom.Name + " already has a North room.");
+                            }
+                            break;
+                        case "S":
+                            if (connectionRoom.SouthId == null)
+                            {
+                                newRoom = new Room { Name = name, Description = description, NorthId = connectionRoom.Id };
+                                _context.Rooms.Add(newRoom);
+                                _context.SaveChanges();
+                                newRoom = _context.Rooms.FirstOrDefault(room => room.Name.ToUpper() == name.ToUpper());
 
-                            connectionRoom.SouthId = newRoom.Id;
-                        }
-                        else
-                        {
-                            _outputManager.AddLogEntry(connectionRoom.Name + " already has a South room.");
-                        }
-                        break;
-                    case "E":
-                        if (connectionRoom.EastId == null)
-                        {
-                            newRoom = new Room { Name = name, Description = description, WestId = connectionRoom.Id };
-                            _context.Rooms.Add(newRoom);
-                            _context.SaveChanges();
-                            newRoom = _context.Rooms.FirstOrDefault(room => room.Name.ToUpper() == name.ToUpper());
+                                connectionRoom.SouthId = newRoom.Id;
+                            }
+                            else
+                            {
+                                _outputManager.AddLogEntry(connectionRoom.Name + " already has a South room.");
+                            }
+                            break;
+                        case "E":
+                            if (connectionRoom.EastId == null)
+                            {
+                                newRoom = new Room { Name = name, Description = description, WestId = connectionRoom.Id };
+                                _context.Rooms.Add(newRoom);
+                                _context.SaveChanges();
+                                newRoom = _context.Rooms.FirstOrDefault(room => room.Name.ToUpper() == name.ToUpper());
 
-                            connectionRoom.EastId = newRoom.Id;
-                        }
-                        else
-                        {
-                            _outputManager.AddLogEntry(connectionRoom.Name + " already has a East room.");
-                        }
-                        break;
-                    case "W":
-                        if (connectionRoom.WestId == null)
-                        {
-                            newRoom = new Room { Name = name, Description = description, EastId = connectionRoom.Id };
-                            _context.Rooms.Add(newRoom);
-                            _context.SaveChanges();
-                            newRoom = _context.Rooms.FirstOrDefault(room => room.Name.ToUpper() == name.ToUpper());
+                                connectionRoom.EastId = newRoom.Id;
+                            }
+                            else
+                            {
+                                _outputManager.AddLogEntry(connectionRoom.Name + " already has a East room.");
+                            }
+                            break;
+                        case "W":
+                            if (connectionRoom.WestId == null)
+                            {
+                                newRoom = new Room { Name = name, Description = description, EastId = connectionRoom.Id };
+                                _context.Rooms.Add(newRoom);
+                                _context.SaveChanges();
+                                newRoom = _context.Rooms.FirstOrDefault(room => room.Name.ToUpper() == name.ToUpper());
 
-                            connectionRoom.WestId = newRoom.Id;
-                        }
-                        else
-                        {
-                            _outputManager.AddLogEntry(connectionRoom.Name + " already has a West room.");
-                        }
+                                connectionRoom.WestId = newRoom.Id;
+                            }
+                            else
+                            {
+                                _outputManager.AddLogEntry(connectionRoom.Name + " already has a West room.");
+                            }
+                            break;
+                        default:
+                            _outputManager.AddLogEntry("Select a valid direction.");
+                            break;
+                    }
+                    if (newRoom != null)
+                    {
+                        newRoom.Players = new List<Player>();
+                        newRoom.Monsters = new List<Monster>();
+                        _context.SaveChanges();
+                        _outputManager.AddLogEntry($"Room '{newRoom.Name}' added to the game.");
+                        _mapManager.DisplayMap();
                         break;
-                    default:
-                        _outputManager.AddLogEntry("Select a valid direction.");
-                        break;
+                    }
                 }
-                if (newRoom != null)
+                else
                 {
-                    newRoom.Players = new List<Player>();
-                    newRoom.Monsters = new List<Monster>();
-                    _context.SaveChanges();
-                    _outputManager.AddLogEntry($"Room '{newRoom.Name}' added to the game.");
-                    _mapManager.DisplayMap();
-                    break;
+                    _outputManager.AddLogEntry("Connection Room not found.");
                 }
-            }
-            else
-            {
-                _outputManager.AddLogEntry("Connection Room not found.");
             }
         }
     }
@@ -811,6 +949,162 @@ public class GameEngine
                 }
                 break;
         }
+        _context.SaveChanges();
+    }
+
+    private void AdminOptions()
+    {
+        _outputManager.AddLogEntry("=-=-=-= Admin Options =-=-=-=");
+        _outputManager.AddLogEntry("1. Current Room Characters by Attribute");
+        _outputManager.AddLogEntry("2. Characters by Room");
+        _outputManager.AddLogEntry("3. Locate Equipment");
+        _outputManager.AddLogEntry("4. Back");
+        var input = _outputManager.GetUserInput("Choose an action:");
+
+        switch (input)
+        {
+            case "1":
+                ListRoomCharacters();
+                break;
+            case "2":
+                AllCharacterRooms();
+                break;
+            case "3":
+                FindEquipment();
+                break;
+            case "4":
+                break;
+            default:
+                _outputManager.AddLogEntry("Invalid selection. Please choose a valid action.");
+                break;
+        }
+    }
+    private void ListRoomCharacters()
+    {
+        var players = _player.Room.Players;
+        var monsters = _player.Room.Monsters;
+        _outputManager.AddLogEntry("1. List by Name");
+        _outputManager.AddLogEntry("2. List by Health");
+        _outputManager.AddLogEntry("3. Back");
+        var input = _outputManager.GetUserInput("Choose an action:");
+
+        switch (input)
+        {
+            case "1":
+                // Need to due a workaround here, LINQ wouldn't be easier due to players and monsters being seperate.
+                _outputManager.AddLogEntry("=-=-= This room's Characters sorted by Name =-=-=");
+                List<string> names = new List<string>();
+                foreach (Player player in players) { names.Add(player.Name); }
+                foreach (Monster monster in monsters) { names.Add(monster.Name); }
+                names.Sort();
+                foreach (string name in names)
+                {
+                    _outputManager.AddLogEntry(" - " + name);
+                }
+                _outputManager.AddLogEntry("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
+                _outputManager.GetUserInput("Press Enter to Continue");
+                break;
+            case "2":
+                _outputManager.AddLogEntry("=-=-= This room's Characters sorted by Health =-=-=");
+                // Need to due a workaround here, LINQ wouldn't be easier due to players and monsters being seperate.
+                Dictionary<string, int> health = new Dictionary<string, int>();
+                foreach (Player player in players) { health.Add(player.Name, player.Health); }
+                foreach (Monster monster in monsters) { health.Add(monster.Name, monster.Health); }
+                var sortedDict = from entry in health orderby entry.Value descending select entry;
+                foreach (KeyValuePair<string, int> entry in sortedDict)
+                {
+                    _outputManager.AddLogEntry(" - " + entry.Key + ": " + entry.Value.ToString());
+                }
+                _outputManager.AddLogEntry("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
+                _outputManager.GetUserInput("Press Enter to Continue");
+                break;
+            case "3":
+                AdminOptions();
+                break;
+            default:
+                _outputManager.AddLogEntry("Invalid selection. Please choose a valid action.");
+                break;
+        }
+    }
+
+    private void AllCharacterRooms()
+    {
+        //seperating players and monsters so group can be done simply with LINQ.
+        _outputManager.AddLogEntry("1. Players");
+        _outputManager.AddLogEntry("2. Monsters");
+        _outputManager.AddLogEntry("3. Back");
+        var input = _outputManager.GetUserInput("Choose an action:");
+
+        switch (input)
+        {
+            case "1":
+                var playerrooms = _context.Players.ToList().GroupBy(x => x.Room);
+                foreach (var room in playerrooms)
+                {
+                    if (room.Key != null)
+                    {
+                        _outputManager.AddLogEntry("=-=-=-=-= " + room.Key.Name + " =-=-=-=-=");
+                        foreach (var player in room)
+                        {
+                            _outputManager.AddLogEntry(" - " + player.Name);
+                        }
+                        _outputManager.GetUserInput("Press Enter to Continue");
+                    }
+                }
+                break;
+            case "2":
+                var monsterrooms = _context.Monsters.ToList().GroupBy(x => x.Room);
+                foreach (var room in monsterrooms)
+                {
+                    if (room.Key != null)
+                    {
+                        _outputManager.AddLogEntry("=-=-=-=-= " + room.Key.Name + " =-=-=-=-=");
+                        foreach (var monster in room)
+                        {
+                            _outputManager.AddLogEntry(" - " + monster.Name);
+                        }
+                        _outputManager.GetUserInput("Press Enter to Continue");
+                    }
+                }
+                break;
+            case "3":
+                AdminOptions();
+                break;
+            default:
+                _outputManager.AddLogEntry("Invalid selection. Please choose a valid action.");
+                break;
+        }
+    }
+    private void FindEquipment()
+    {
+        var players = _context.Players;
+        Dictionary<Item, Player> itemLocation = new Dictionary<Item, Player>();
+        foreach (Player player in players)
+        {
+            if (player.Equipment.Weapon != null)
+                itemLocation.Add(player.Equipment.Weapon, player);
+            if (player.Equipment.Armor != null)
+                itemLocation.Add(player.Equipment.Armor, player);
+            if (player.Inventory is not null)
+            {
+                if (player.Inventory.Items is not null)
+                {
+                    if (player.Inventory.Items.Any())
+                    {
+                        foreach (Item item in player.Inventory.Items)
+                        {
+                            itemLocation.Add(item, player);
+                        }
+                    }
+                }
+            }
+        }
+        _outputManager.AddLogEntry("=-=-=-= Equipment Locations =-=-=-=");
+        foreach (KeyValuePair<Item, Player> entry in itemLocation)
+        {
+            _outputManager.AddLogEntry(entry.Key.Name + ": " + entry.Value.Name + " | " + entry.Value.Room.Name);
+        }
+        _outputManager.GetUserInput("Press Enter to Continue");
     }
     private void AttackCharacter()
     {
@@ -835,30 +1129,25 @@ public class GameEngine
                 {
                     monsters.Remove(target);
                     _outputManager.AddLogEntry(target.Name + " has been defeated.");
+                    _player.Experience += 20;
                 }
             }
+            _context.SaveChanges();
         }
         else
         {
             _outputManager.AddLogEntry("There's no monsters here.");
         }
-        //if (_goblin is ITargetable targetableGoblin)
-        //{
-        //    _playerService.Attack(_player, targetableGoblin);
-        //    Random rnd = new Random();
-        //    int r = rnd.Next(_player.Abilities.Count);
-        //    _playerService.UseAbility(_player, _player.Abilities.ElementAt(r), targetableGoblin);
-        //}
     }
     private void SetupGame()
     {
-        _player = _context.Players.FirstOrDefault();
-        _outputManager.AddLogEntry($"{_player.Name} has entered the game.");
-        var _playercharacters = _context.Players;
-        var _monstercharacters = _context.Monsters;
+        while (_player == null)
+        {
+            SwapCharacter();
+        }
+        //_player = _context.Players.FirstOrDefault();
 
         // Load monsters into random rooms 
-        LoadMonsters();
 
         // Load map
         _mapManager.LoadInitialRoom(_player.Room.Id);
@@ -867,11 +1156,6 @@ public class GameEngine
         // Pause before starting the game loop
         Thread.Sleep(500);
         GameLoop();
-    }
-
-    private void LoadMonsters()
-    {
-        _goblin = _context.Monsters.OfType<Goblin>().FirstOrDefault();
     }
 
 }

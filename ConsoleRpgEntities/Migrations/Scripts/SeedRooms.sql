@@ -57,6 +57,14 @@ UPDATE Rooms SET WestId = 23 WHERE Id = 24;
 SET IDENTITY_INSERT Rooms OFF;
 
 
--- Add player to room
+-- Add players to rooms
 UPDATE PLAYERS SET RoomId = 1 Where Id = 1
+UPDATE PLAYERS SET RoomId = 4 Where Id = 2
+
+-- Add monsters to rooms
 UPDATE Monsters SET RoomId = 1 Where Id = 1
+UPDATE Monsters SET RoomId = 1 Where Id = 2
+UPDATE Monsters SET RoomId = 4 Where Id = 3
+UPDATE Monsters SET RoomId = 9 Where Id = 4
+UPDATE Monsters SET RoomId = 14 Where Id = 5
+UPDATE Monsters SET RoomId = 19 Where Id = 6

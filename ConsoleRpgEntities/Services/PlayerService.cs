@@ -25,6 +25,8 @@ public class PlayerService
 
         _outputService.WriteLine($"{player.Name} attacks {target.Name} with a {player.Equipment.Weapon.Name} dealing {player.Equipment.Weapon.Attack} damage!");
         target.Health -= player.Equipment.Weapon.Attack;
+        if (target.Health < 0)
+            target.Health = 0;
         _outputService.WriteLine($"{target.Name} has {target.Health} health remaining.");
     }
 
@@ -33,6 +35,9 @@ public class PlayerService
         if (player.Abilities?.Contains(ability) == true)
         {
             _abilityService.Activate(ability, player, target);
+            if (target.Health < 0)
+                target.Health = 0;
+            _outputService.WriteLine($"{target.Name} has {target.Health} health remaining.");
         }
         else
         {

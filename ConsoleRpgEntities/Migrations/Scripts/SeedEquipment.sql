@@ -1,21 +1,26 @@
 ﻿-- 1. Insert a new sword into the Items table
 INSERT INTO Items (Name, Type, Attack, Defense, Weight, Value)
-VALUES ('Sword', 'Weapon', 5, 0, 1, 10);
+VALUES ('Sword', 'Weapon', 5, 0, 1, 10),
+		('Machete', 'Weapon', 8, 0, 1, 10);
 
 -- Get the Id of the newly inserted Item
-DECLARE @SwordId INT = SCOPE_IDENTITY();
+Declare @SwordId INT = (Select top 1 Id from Items where Name = 'Sword')
+Insert into Equipments
+Values (@SwordId, NULL)
 
--- 2. Insert a new Equipment record with the WeaponId set to the new sword
-INSERT INTO Equipments (WeaponId, ArmorId)
-VALUES (@SwordId, NULL);
+Declare @EquipmentId INT = (Select top 1 Id from Equipments where WeaponId = @SwordId)
 
--- Get the Id of the newly inserted Equipment
-DECLARE @EquipmentId INT = SCOPE_IDENTITY();
+Update Players
+Set EquipmentID = @EquipmentId
+Where Id = 1
 
--- 3. Update the Player's EquipmentId to the new Equipment
--- Replace '1' with the actual Id of the player you want to update
-DECLARE @PlayerId INT = 1; -- Replace with actual Player Id
 
-UPDATE Players
-SET EquipmentId = @EquipmentId
-WHERE Id = @PlayerId;
+Declare @MacheteId INT = (Select top 1 Id from Items where Name = 'Machete')
+Insert into Equipments
+Values (@MacheteId, NULL)
+
+Declare @EquipmentId2 INT = (Select top 1 Id from Equipments where WeaponId = @MacheteId)
+
+Update Players
+Set EquipmentID = @EquipmentId2
+Where Id = 2

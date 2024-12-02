@@ -29,7 +29,8 @@ namespace ConsoleRpgEntities.Data
             // Configure TPH for Ability hierarchy
             modelBuilder.Entity<Ability>()
                 .HasDiscriminator<string>(pa=>pa.AbilityType)
-                .HasValue<ShoveAbility>("ShoveAbility");
+                .HasValue<ShoveAbility>("ShoveAbility")
+                .HasValue<SmashAbility>("SmashAbility");
 
             // Configure many-to-many relationship
             modelBuilder.Entity<Player>()

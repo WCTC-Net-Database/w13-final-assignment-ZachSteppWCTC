@@ -2,7 +2,6 @@
 {
     public class ShoveAbility : Ability
     {
-        public int Damage { get; set; }
         public int Distance { get; set; }
 
     }

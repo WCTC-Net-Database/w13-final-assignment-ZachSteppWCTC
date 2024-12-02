@@ -20,6 +20,12 @@ namespace ConsoleRpgEntities.Services
             {
                 // Shove ability logic
                 _outputService.WriteLine($"{user.Name} shoves {target.Name} back {shoveAbility.Distance} feet, dealing {shoveAbility.Damage} damage!");
+                target.Health -= shoveAbility.Damage;
+            }
+            else if (ability is SmashAbility smashAbility)
+            {
+                _outputService.WriteLine($"{user.Name} deals a devestating smash to {target.Name}, dealing {smashAbility.Damage} damage!");
+                target.Health -= smashAbility.Damage;
             }
         }
     }
