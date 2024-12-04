@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Reflection;
@@ -62,7 +63,6 @@ public class GameEngine
             _outputManager.AddLogEntry("5. Admin Options");
             _outputManager.AddLogEntry("6. Quit");
             var input = _outputManager.GetUserInput("Choose an action:");
-
 
             switch (input.ToUpper())
             {
@@ -239,7 +239,7 @@ public class GameEngine
                 var xp = int.Parse(xpInput);
                 var hp = int.Parse(hpInput);
 
-                ICollection<Ability> abilities = Array.Empty<Ability>();
+                ICollection<Ability> abilities = new Collection<Ability>();
 
                 var character = new Player
                 {
@@ -273,9 +273,9 @@ public class GameEngine
     {
         var equipment = new Equipment();
         Random rnd = new Random();
-        var idsInEquipment = _context.Equipments.Select(x => x.WeaponId).ToHashSet();
-        var weapons = _context.Items.Where(item => item.Type == "Weapon").ToHashSet();
-        var weaponsNotInEquipment = _context.Items.Where(item => !(idsInEquipment.Contains(item.Id))).ToHashSet();
+        var idsInEquipment = _context.Equipments.Select(x => x.WeaponId);
+        var weapons = _context.Items.Where(item => item.Type == "Weapon");
+        var weaponsNotInEquipment = weapons.Where(item => !(idsInEquipment.Contains(item.Id))).ToHashSet();
 
         int r = rnd.Next(weaponsNotInEquipment.Count); // Selects a random weapon not already in a character's equipment.
         var item = weaponsNotInEquipment.ElementAt(r);
@@ -656,12 +656,11 @@ public class GameEngine
                             {
                                 Name = name,
                                 Description = description,
-                                AbilityType = type,
+                                AbilityType = "ShoveAbility",
                                 Damage = damage,
                                 Distance = distance
 
                             };
-                            _context.Abilities.Add(ability);
                             playercharacter.Abilities.Add(ability);
                             _context.SaveChanges();
                             _outputManager.AddLogEntry(playercharacter.Name + " learned " + name + ".");
@@ -686,10 +685,9 @@ public class GameEngine
                             {
                                 Name = name,
                                 Description = description,
-                                AbilityType = type,
+                                AbilityType = "SmashAbility",
                                 Damage = damage,
                             };
-                            _context.Abilities.Add(ability);
                             playercharacter.Abilities.Add(ability);
                             _context.SaveChanges();
                             _outputManager.AddLogEntry(playercharacter.Name + " learned " + name + ".");
@@ -798,7 +796,7 @@ public class GameEngine
             {
                 Room newRoom = null;
                 var direction = _outputManager.GetUserInput("Enter expansion direction (N/E/S/W):");
-                var connectionName = _outputManager.GetUserInput("Enter Room Name to expend from:");
+                var connectionName = _outputManager.GetUserInput("Enter Room Name to expand from:");
 
                 var connectionRoom = _context.Rooms.FirstOrDefault(room => room.Name.ToUpper() == connectionName.ToUpper());
                 if (connectionRoom != null)
@@ -1130,9 +1128,11 @@ public class GameEngine
                     monsters.Remove(target);
                     _outputManager.AddLogEntry(target.Name + " has been defeated.");
                     _player.Experience += 20;
+                    _outputManager.AddLogEntry(_player.Name + " gained 20 XP.");
                 }
             }
             _context.SaveChanges();
+            _outputManager.GetUserInput("Press Enter to Continue");
         }
         else
         {
